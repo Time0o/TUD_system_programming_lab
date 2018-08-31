@@ -1,0 +1,25 @@
+# exercise 1
+exercise1/bin/*
+!exercise1/bin/.gitkeep
+exercise1/obj/*
+!exercise1/obj/.gitkeep
+
+# exercise 2
+exercise2/bin/*
+!exercise2/bin/.gitkeep
+exercise2/obj/*
+!exercise2/obj/.gitkeep
+
+# exercise 3
+exercise3/bin/*
+!exercise3/bin/.gitkeep
+exercise3/obj/*
+!exercise3/obj/.gitkeep
+exercise3/parse/src/*
+!exercise3/parse/src/.gitkeep
+exercise3/parse/include/*
+!exercise3/parse/include/.gitkeep
+
+# exercise 4
+exercise4/bin/*
+!exercise4/bin/.gitkeep
