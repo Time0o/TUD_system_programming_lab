@@ -1,0 +1,18 @@
+*/README.md
+
+# exercise 1
+exercise1/bin/*
+exercise1/obj/*
+
+# exercise 2
+exercise2/bin/*
+exercise2/obj/*
+
+# exercise 3
+exercise3/bin/*
+exercise3/obj/*
+exercise3/parse/src/*
+exercise3/parse/include/*
+
+# exercise 4
+exercise4/bin/*
