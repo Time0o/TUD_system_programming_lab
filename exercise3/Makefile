@@ -9,7 +9,7 @@ PARSE_INCLUDE_DIR=$(PARSE_DIR)/include
 
 C_CC=gcc
 CPP_CC=g++
-CXXFLAGS=-Wall -g
+CXXFLAGS=-Wall -Werror -g
 CPPFLAGS=-std=c++11
 LDFLAGS=-lfl -lreadline -lutil
 

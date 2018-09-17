@@ -13,7 +13,7 @@ static void
 usage_err (char const *prog, char const *msg)
 {
   if (msg)
-    fprintf (stderr, msg);
+    fputs (msg, stderr);
 
   fprintf (stderr, USAGE_MSG, prog);
   exit (EXIT_FAILURE);

@@ -5,7 +5,7 @@ BIN_DIR=bin
 _OBJ=main.o
 OBJ=$(patsubst %.o, $(OBJ_DIR)/%.o, $(_OBJ))
 
-CFLAGS=-Wall
+CFLAGS=-Wall -Werror -std=gnu99
 
 $(BIN_DIR)/find: $(OBJ)
 	gcc $(CFLAGS) -o $@ $^

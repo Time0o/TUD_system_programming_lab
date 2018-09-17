@@ -6,10 +6,10 @@ BIN_DIR=bin
 _OBJ=main.o sincos.o
 OBJ=$(patsubst %.o, $(OBJ_DIR)/%.o, $(_OBJ))
 
-CFLAGS=-Wall
+CFLAGS=-Wall -Werror -std=gnu99
 
 $(BIN_DIR)/sincos: $(OBJ)
-	gcc $(CFLAGS) -lm -o $@ $^
+	gcc $(CFLAGS) -o $@ $^ -lm
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	gcc $(CFLAGS) -I$(INCLUDE_DIR) -c -o $@ $<

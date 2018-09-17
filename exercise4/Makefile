@@ -1,5 +1,5 @@
 bin/cracker: src/cracker.c
-	gcc -Wall $< -o $@
+	gcc -Wall -Werror -std=gnu99 $< -o $@
 
 .PHONY: clean
 
