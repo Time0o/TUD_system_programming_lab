@@ -33,19 +33,47 @@ usage (int status)
   exit (status);
 }
 
+static int
+match_pattern (char *pattern, char *file, DIR *dird)
+{
+  int match = 0;
+  if (pattern)
+    {
+      switch (fnmatch (pattern, file, 0))
+        {
+        case 0:
+          match = 1;
+          break;
+        case FNM_NOMATCH:
+          break;
+        default:
+          fprintf (stderr, "%s: fnmatch failed\n", prog_name);
+          if (dird)
+            closedir (dird);
+          exit (EXIT_FAILURE);
+        }
+    }
+  else
+    match = 1;
+
+  return match;
+}
+
 static void
-find (char *dir, char *pattern, int f, int d, int follow, int xdev, dev_t dev)
+find (char *dir, char *pattern, int f, int d, int follow, int xdev, dev_t dev, int init)
 {
   DIR *dird = opendir (dir);
   if (!dird)
-    {
-      fprintf (stderr, "%s: %s\n", prog_name, strerror (errno));
-      exit (EXIT_FAILURE);
-    }
+    return;
+
+  if (init && d == 1)
+    printf("%s\n", dir);
 
   for (;;)
     {
+      errno = 0;
       struct dirent *dirent = readdir (dird);
+
       if (!dirent)
         {
           closedir (dird);
@@ -60,36 +88,50 @@ find (char *dir, char *pattern, int f, int d, int follow, int xdev, dev_t dev)
       if (strcmp(dirent->d_name, ".") == 0 || strcmp(dirent->d_name, "..") == 0)
         continue;
 
-      int match = 0;
-      if (pattern)
-        {
-          int flags = 0;
-          switch (fnmatch (pattern, dirent->d_name, flags))
-            {
-            case 0:
-              match = 1;
-              break;
-            case FNM_NOMATCH:
-              break;
-            default:
-              fprintf (stderr, "%s: fnmatch failed\n", prog_name);
-              closedir (dird);
-              exit (EXIT_FAILURE);
-            }
-        }
-      else
-        match = 1;
-
       char path[4096];
       snprintf (path, sizeof(path), "%s/%s", dir, dirent->d_name);
 
-      int ignore = (f == 0 && dirent->d_type == DT_REG)
-                || (d == 0 && dirent->d_type == DT_DIR);
+      int match = match_pattern (pattern, dirent->d_name, dird);
 
-      if (match && !ignore)
+      int not_ignore = 0;
+      if (f == 1 && d == 1)
+        {
+          if (dirent->d_type == DT_LNK)
+            {
+               if (!follow)
+                 not_ignore = 1;
+               else
+                 {
+                   struct stat dummy;
+                   if (stat (path, &dummy) != 0)
+                     not_ignore = 1;
+                 }
+            }
+          else if (dirent->d_type != DT_DIR)
+            not_ignore = 1;
+        }
+      else if (f == 1 && d == 0)
+        {
+          if (dirent->d_type == DT_REG)
+            not_ignore = 1;
+        }
+
+      if (match && not_ignore)
         printf ("%s\n", path);
 
-      if (dirent->d_type == DT_DIR || (dirent->d_type == DT_LNK && follow))
+      int recurse = 0;
+      if (dirent->d_type == DT_DIR)
+        {
+          recurse = 1;
+        }
+      else if (dirent->d_type == DT_LNK && follow)
+        {
+           struct stat dummy;
+           if (lstat (path, &dummy) == 0)
+             recurse = 1;
+        }
+
+      if (recurse)
         {
           if (xdev)
             {
@@ -97,10 +139,13 @@ find (char *dir, char *pattern, int f, int d, int follow, int xdev, dev_t dev)
               stat(path, &sb);
 
               if (sb.st_dev != dev)
-                continue;
+                {
+                  printf ("%s\n", path);
+                  continue;
+                }
             }
 
-          find (path, pattern, f, d, follow, xdev, dev);
+          find (path, pattern, f, d, follow, xdev, dev, 1);
         }
     }
 }
@@ -172,6 +217,29 @@ main (int argc, char **argv)
 
   char *dir = argv[optind];
 
+  if (access (dir, F_OK) != -1)
+    {
+      if (!pattern || match_pattern (pattern, dir, NULL))
+        {
+          struct stat s;
+          lstat(dir, &s);
+          if ((f == 1 && d == 1)
+           || (f == 1 && d == 0 && S_ISREG(s.st_mode))
+           || (f == 0 && d == 1 && S_ISDIR(s.st_mode)))
+            {
+              printf ("%s\n", dir);
+            }
+
+          if (!(S_ISDIR(s.st_mode) && !S_ISLNK(s.st_mode)))
+            return EXIT_SUCCESS;
+        }
+    }
+  else
+    {
+      fprintf (stderr, "%s: %s\n", prog_name, strerror (errno));
+      exit (EXIT_FAILURE);
+    }
+
   if (dir[strlen(dir) - 1] == '/')
     dir[strlen(dir) - 1] = '\0';
 
@@ -179,7 +247,7 @@ main (int argc, char **argv)
   stat(dir, &sb);
   dev_t dev = sb.st_dev;
 
-  find (dir, pattern, f, d, follow, xdev, dev);
+  find (dir, pattern, f, d, follow, xdev, dev, 0);
 
   free (pattern);
 
