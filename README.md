@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/Time0o/TUD_system_programming_lab.svg?branch=devel)](https://travis-ci.org/Time0o/TUD_system_programming_lab)
+
 Exercise solutions for the _Complex Lab Systems Programming_ 2018 at TU
 Dresden consisting of several low level C/C++ programming exercises.
 
