@@ -1,20 +1,20 @@
-SRC_DIR=src
-INCLUDE_DIR=include
-OBJ_DIR=obj
-BIN_DIR=bin
+SRC=main.c sincos.c
+OBJ=$(SRC:.c=.o)
+DEPS=deps.d
+BIN=sincos
 
-_OBJ=main.o sincos.o
-OBJ=$(patsubst %.o, $(OBJ_DIR)/%.o, $(_OBJ))
-
+CC=gcc
 CFLAGS=-Wall -Werror -std=gnu99
 
-$(BIN_DIR)/sincos: $(OBJ)
-	gcc $(CFLAGS) -o $@ $^ -lm
-
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
-	gcc $(CFLAGS) -I$(INCLUDE_DIR) -c -o $@ $<
+$(BIN): $(OBJ)
+	$(CC) $(CFLAGS) -o $@ $^ -lm
 
 .PHONY: clean
 
 clean:
-	rm -f $(OBJ_DIR)/* $(BIN_DIR)/*
+	rm -f $(OBJ) $(DEPS) $(BIN)
+
+depend: $(SRC)
+	$(CC) -MM $^ -MF $(DEPS)
+
+-include $(DEPS)
