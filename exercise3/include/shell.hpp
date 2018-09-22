@@ -16,7 +16,9 @@ class Shell
 {
 public:
   // command execution
-  pid_t execute_cmd(std::string const &cmd, int in, int out) const;
+  pid_t execute_cmd(
+    std::string const &cmd, int in, int out, int obsolete = -1) const;
+
   void execute_cmdline(Cmdline const &cmdline);
 
   // accessors

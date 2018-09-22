@@ -54,13 +54,6 @@ int main(int argc, char **argv)
         std::cerr << shell.get_name() << ": " << strerror(errno) << '\n';
     }
 
-  // avoid zombiefication of child processes
-  struct sigaction sa_ignore = {};
-  sa_ignore.sa_handler = SIG_IGN;
-
-  if (sigaction(SIGCHLD, &sa_ignore, nullptr) == -1)
-    std::cerr << shell.get_name() << ": " << strerror(errno) << '\n';
-
   // enter readline loop
   char *buf;
 

@@ -16,7 +16,8 @@
 #include "cmdline.hpp"
 #include "shell.hpp"
 
-pid_t Shell::execute_cmd(std::string const &cmd, int in, int out) const
+pid_t Shell::execute_cmd(
+  std::string const &cmd, int in, int out, int obsolete) const
 {
   std::string prog, prog_path, interpreter_path;
   std::string args;
@@ -123,9 +124,9 @@ pid_t Shell::execute_cmd(std::string const &cmd, int in, int out) const
       }
     case 0:
       {
-        if (in != -1) // redirect stdin
+        if (in != -1 && in != STDIN_FILENO)
           {
-            if (in != STDIN_FILENO && dup2(in, STDIN_FILENO) == -1)
+            if (dup2(in, STDIN_FILENO) == -1 || close(in) == -1)
               {
                 std::cerr << _name << ": " << strerror(errno) << '\n';
                 _Exit(EXIT_FAILURE);
@@ -145,9 +146,18 @@ pid_t Shell::execute_cmd(std::string const &cmd, int in, int out) const
               }
           }
 
-        if (out != -1) // redirect stdout
+        if (out != -1 && out != STDOUT_FILENO) // redirect stdout
           {
-            if (out != STDOUT_FILENO && dup2(out, STDOUT_FILENO) == -1)
+            if (dup2(out, STDOUT_FILENO) == -1 || close(out) == -1)
+              {
+                std::cerr << _name << ": " << strerror(errno) << '\n';
+                _Exit(EXIT_FAILURE);
+              }
+          }
+
+        if (obsolete != -1) // close superfluous pipe end in child
+          {
+            if (close(obsolete) == -1)
               {
                 std::cerr << _name << ": " << strerror(errno) << '\n';
                 _Exit(EXIT_FAILURE);
@@ -206,6 +216,7 @@ void Shell::execute_cmdline(Cmdline const &cmdline)
   int out_fd = -1;
 
   std::vector<pid_t> jobs;
+  struct timespec job_wait_timeout {0, 1000};
 
   if (!cmdline.input_redirect.empty())
     {
@@ -257,12 +268,14 @@ void Shell::execute_cmdline(Cmdline const &cmdline)
     }
 
   int pipefd[2];
+
   for (auto i = 0u; i < cmdline.pipeline.size(); ++i)
     {
       if (i == 0u)
         {
           pipe(pipefd);
-          int proc = execute_cmd(cmdline.pipeline[i], in_fd, pipefd[1]);
+          int proc = execute_cmd(
+            cmdline.pipeline[i], in_fd, pipefd[1], pipefd[0]);
 
           if (close(pipefd[1]) == -1)
             std::cerr << _name << ": " << strerror(errno) << '\n';
@@ -298,7 +311,8 @@ void Shell::execute_cmdline(Cmdline const &cmdline)
           int pipe_read = pipefd[0];
           pipe(pipefd);
 
-          int proc = execute_cmd(cmdline.pipeline[i], pipe_read, pipefd[1]);
+          int proc = execute_cmd(
+            cmdline.pipeline[i], pipe_read, pipefd[1], pipefd[0]);
 
           if (close(pipe_read) == -1)
             std::cerr << _name << ": " << strerror(errno) << '\n';
@@ -315,16 +329,33 @@ void Shell::execute_cmdline(Cmdline const &cmdline)
     }
 
   int status;
-  pid_t pid;
+  bool done;
+
   while (!jobs.empty())
     {
-      if ((pid = wait(&status)) == -1)
+      nanosleep(&job_wait_timeout, nullptr);
+
+      for (pid_t job : jobs)
         {
-          if (errno != ECHILD)
-            std::cerr << _name << ": " << strerror(errno) << '\n';
-          break;
+          done = false;
+
+          switch (waitpid(job, &status, WNOHANG))
+            {
+            case -1:
+              if (errno == ECHILD)
+                done = true;
+              else
+                std::cerr << _name << ": " << strerror(errno) << '\n';
+              break;
+            case 0:
+              break;
+            default:
+              done = true;
+            }
+
+          if (done)
+            jobs.erase(std::remove(jobs.begin(), jobs.end(), job), jobs.end());
         }
-      jobs.erase(std::remove(jobs.begin(), jobs.end(), pid), jobs.end());
     }
 
 cleanup:
