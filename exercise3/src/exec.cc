@@ -218,6 +218,7 @@ void Shell::execute_cmdline(Cmdline const &cmdline)
   std::vector<pid_t> jobs;
   struct timespec job_wait_timeout {0, 1000};
 
+  // obtain input/output redirection file descriptors
   if (!cmdline.input_redirect.empty())
     {
       in_fd = open(cmdline.input_redirect.c_str(), O_RDONLY);
@@ -245,6 +246,7 @@ void Shell::execute_cmdline(Cmdline const &cmdline)
   else
     out_fd = STDOUT_FILENO;
 
+  // start single process
   if (cmdline.pipeline.size() == 1u)
     {
       int proc = execute_cmd(cmdline.pipeline[0], in_fd, out_fd);
@@ -267,6 +269,7 @@ void Shell::execute_cmdline(Cmdline const &cmdline)
       goto cleanup;
     }
 
+  // start pipeline
   int pipefd[2];
 
   for (auto i = 0u; i < cmdline.pipeline.size(); ++i)
@@ -328,6 +331,7 @@ void Shell::execute_cmdline(Cmdline const &cmdline)
         }
     }
 
+  // wait for jobs to finish
   int status;
   bool done;
 
