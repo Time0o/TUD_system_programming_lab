@@ -23,6 +23,8 @@ void yyerror(std::string const &s)
 {
   std::cerr << shell.get_name() << ": Syntax error near unexpected token `"
             << yytext << "'\n";
+
+  cmdline = Cmdline();
 }
 %}
 
