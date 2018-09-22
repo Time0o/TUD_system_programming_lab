@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -204,6 +205,8 @@ void Shell::execute_cmdline(Cmdline const &cmdline)
   int in_fd = -1;
   int out_fd = -1;
 
+  std::vector<pid_t> jobs;
+
   if (!cmdline.input_redirect.empty())
     {
       in_fd = open(cmdline.input_redirect.c_str(), O_RDONLY);
@@ -271,6 +274,9 @@ void Shell::execute_cmdline(Cmdline const &cmdline)
 
               goto cleanup;
             }
+
+          if (!cmdline.bg)
+            jobs.push_back(proc);
         }
       else if (i == cmdline.pipeline.size() - 1u)
         {
@@ -283,15 +289,7 @@ void Shell::execute_cmdline(Cmdline const &cmdline)
             goto cleanup;
 
           if (!cmdline.bg)
-            {
-              _fg_job = proc;
-
-              if (waitpid(_fg_job, nullptr, 0) == -1
-                  && errno != ECHILD && errno != EINTR)
-                {
-                  std::cerr << _name << ": " << strerror(errno) << '\n';
-                }
-            }
+            jobs.push_back(proc);
           else
             std::cout << "Sent to background: " << proc << '\n';
         }
@@ -310,10 +308,24 @@ void Shell::execute_cmdline(Cmdline const &cmdline)
 
           if (proc == -1)
             goto cleanup;
+
+          if (!cmdline.bg)
+            jobs.push_back(proc);
         }
     }
 
-  return;
+  int status;
+  pid_t pid;
+  while (!jobs.empty())
+    {
+      if ((pid = wait(&status)) == -1)
+        {
+          if (errno != ECHILD)
+            std::cerr << _name << ": " << strerror(errno) << '\n';
+          break;
+        }
+      jobs.erase(std::remove(jobs.begin(), jobs.end(), pid), jobs.end());
+    }
 
 cleanup:
   if (in_fd != -1 && in_fd != STDIN_FILENO && close(in_fd) == -1)
