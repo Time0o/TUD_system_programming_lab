@@ -234,6 +234,8 @@ void Shell::execute_cmdline(Cmdline const &cmdline)
   if (cmdline.pipeline.size() == 1u)
     {
       int proc = execute_cmd(cmdline.pipeline[0], in_fd, out_fd);
+      if (proc == -1)
+        return;
 
       if (!cmdline.bg)
         {
