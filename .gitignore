@@ -4,6 +4,7 @@ exercise1/*.d
 exercise1/sincos
 
 # exercise 2
+exercise2/testbed
 exercise2/bin/*
 !exercise2/bin/.gitkeep
 exercise2/obj/*
