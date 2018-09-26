@@ -1,8 +1,7 @@
 # exercise 1
-exercise1/bin/*
-!exercise1/bin/.gitkeep
-exercise1/obj/*
-!exercise1/obj/.gitkeep
+exercise1/*.o
+exercise1/*.d
+exercise1/sincos
 
 # exercise 2
 exercise2/bin/*
