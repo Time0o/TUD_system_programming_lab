@@ -21,5 +21,6 @@ exercise3/parse/include/*
 !exercise3/parse/include/.gitkeep
 
 # exercise 4
+exercise4/simple_login
 exercise4/bin/*
 !exercise4/bin/.gitkeep
