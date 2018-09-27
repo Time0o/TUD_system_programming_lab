@@ -1,10 +1,12 @@
 */README.md
 
 # exercise 1
-exercise1/bin/*
-exercise1/obj/*
+exercise1/*.o
+exercise1/*.d
+exercise1/sincos
 
 # exercise 2
+exercise2/testbed
 exercise2/bin/*
 exercise2/obj/*
 
@@ -15,4 +17,5 @@ exercise3/parse/src/*
 exercise3/parse/include/*
 
 # exercise 4
+exercise4/simple_login
 exercise4/bin/*
