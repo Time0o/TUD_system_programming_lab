@@ -195,7 +195,7 @@ _is_parent (struct ino_node *head, ino_t ino)
 static int
 is_parent (ino_t head, ino_t ino)
 {
-  ino_t idx = ino % INO_HASH_SZ;
+  ino_t idx = head % INO_HASH_SZ;
 
   struct ino_node *head_node = ino_hash[idx];
   if (!head_node)
