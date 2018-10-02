@@ -9,7 +9,7 @@ CFLAGS=-Wall -Werror -std=gnu99
 .DEFAULT_GOAL := $(BIN)
 
 depend: $(SRC)
-	$(CC) -MM $^ -MF $(DEPS)
+	$(CC) -MM $^ > $(DEPS)
 
 $(BIN): $(OBJ) depend
 	$(CC) $(CFLAGS) -o $@ $(OBJ) -lm
