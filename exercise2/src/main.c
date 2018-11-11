@@ -39,6 +39,7 @@ usage (int status)
 
 static struct ino_node
 {
+  dev_t dev;
   ino_t ino;
   char *path;
 
@@ -90,7 +91,7 @@ label_ino_node (struct ino_node *node, char *path)
 }
 
 static struct ino_node *
-create_ino_node (ino_t ino)
+create_ino_node (dev_t dev, ino_t ino)
 {
   ino_t idx = ino % INO_HASH_SZ;
 
@@ -101,6 +102,7 @@ create_ino_node (ino_t ino)
       return NULL;
     }
 
+  tmp->dev = dev;
   tmp->ino = ino;
 
   tmp->n_children = 0;
@@ -117,14 +119,14 @@ create_ino_node (ino_t ino)
 }
 
 static struct ino_node *
-get_ino_node (ino_t ino)
+get_ino_node (dev_t dev, ino_t ino)
 {
   ino_t idx = ino % INO_HASH_SZ;
 
   struct ino_node *head = ino_hash[idx];
   while (head)
     {
-      if (head->ino == ino)
+      if (head->dev == dev && head->ino == ino)
         return head;
 
       head = head->next;
@@ -134,20 +136,21 @@ get_ino_node (ino_t ino)
 }
 
 static int
-extend_graph (ino_t source, ino_t target, char *target_path)
+extend_graph (dev_t source_dev, ino_t source_ino,
+              dev_t target_dev, ino_t target_ino, char *target_path)
 {
-  struct ino_node *source_node = get_ino_node (source);
+  struct ino_node *source_node = get_ino_node (source_dev, source_ino);
   if (!source_node)
     {
-      source_node = create_ino_node (source);
+      source_node = create_ino_node (source_dev, source_ino);
       if (!source_node)
         return -1;
     }
 
-  struct ino_node *target_node = get_ino_node (target);
+  struct ino_node *target_node = get_ino_node (target_dev, target_ino);
   if (!target_node)
     {
-      target_node = create_ino_node (target);
+      target_node = create_ino_node (target_dev, target_ino);
       if (!target_node)
         return -1;
 
@@ -156,14 +159,18 @@ extend_graph (ino_t source, ino_t target, char *target_path)
 
   for (int i = 0; i < source_node->n_children; ++i)
     {
-      if (source_node->children[i]->ino == target)
-        return 0;
+      if (source_node->children[i]->dev == target_dev
+          && source_node->children[i]->ino == target_ino)
+        {
+          return 0;
+        }
     }
 
   ++source_node->n_children;
 
   struct ino_node **tmp = realloc (
-    source_node->children, source_node->n_children * sizeof (struct ino_node **));
+    source_node->children,
+    source_node->n_children * sizeof (struct ino_node **));
 
   if (!tmp)
     {
@@ -178,14 +185,14 @@ extend_graph (ino_t source, ino_t target, char *target_path)
 }
 
 static int
-_is_parent (struct ino_node *head, ino_t ino)
+_is_parent (struct ino_node *head, dev_t dev, ino_t ino)
 {
-  if (head->ino == ino)
+  if (head->dev == dev && head->ino == ino)
     return 1;
 
   for (int i = 0; i < head->n_children; ++i)
     {
-      if (_is_parent (head->children[i], ino))
+      if (_is_parent (head->children[i], dev, ino))
         return 1;
     }
 
@@ -193,9 +200,9 @@ _is_parent (struct ino_node *head, ino_t ino)
 }
 
 static int
-is_parent (ino_t head, ino_t ino)
+is_parent (dev_t head_dev, ino_t head_ino, dev_t dev, ino_t ino)
 {
-  ino_t idx = head % INO_HASH_SZ;
+  ino_t idx = head_ino % INO_HASH_SZ;
 
   struct ino_node *head_node = ino_hash[idx];
   if (!head_node)
@@ -203,8 +210,8 @@ is_parent (ino_t head, ino_t ino)
 
   while (head_node)
     {
-      if (head_node->ino == head)
-        return _is_parent (head_node, ino);
+      if (head_node->dev == head_dev && head_node->ino == head_ino)
+        return _is_parent (head_node, dev, ino);
 
       head_node = head_node->next;
     }
@@ -279,7 +286,7 @@ ignore (char *file, struct stat *sb, struct stat *lsb,
 
 static int
 find (char *file, char *path, char *pattern, int f, int d, int follow,
-      int xdev, dev_t dev, ino_t parent_ino, int parent_fd)
+      int xdev, dev_t dev, dev_t parent_dev, ino_t parent_ino, int parent_fd)
 {
   // stat current file
   struct stat sb, lsb;
@@ -307,9 +314,10 @@ find (char *file, char *path, char *pattern, int f, int d, int follow,
     {
       if (parent_ino != 0)
         {
-          if (is_parent (sb.st_ino, parent_ino))
+          if (is_parent (sb.st_dev, sb.st_ino, parent_dev, parent_ino))
             {
-              struct ino_node *parent_node = get_ino_node (parent_ino);
+              struct ino_node *parent_node = get_ino_node (parent_dev,
+                                                           parent_ino);
 
               fprintf (stderr,
                        "%s: File system loop detected; "
@@ -319,13 +327,14 @@ find (char *file, char *path, char *pattern, int f, int d, int follow,
               return 0;
             }
 
-          int err = extend_graph (parent_ino, sb.st_ino, path);
+          int err = extend_graph (parent_dev, parent_ino,
+                                  sb.st_dev, sb.st_ino, path);
           if (err != 0)
             return 1;
         }
       else
         {
-          struct ino_node *root = create_ino_node (sb.st_ino);
+          struct ino_node *root = create_ino_node (sb.st_dev, sb.st_ino);
           label_ino_node (root, path);
         }
     }
@@ -410,7 +419,7 @@ find (char *file, char *path, char *pattern, int f, int d, int follow,
 
       // recurse
       err |= find (dirent->d_name, next_path, pattern, f, d, follow,
-                   xdev, dev, sb.st_ino, dirfd);
+                   xdev, dev, sb.st_dev, sb.st_ino, dirfd);
 
       // free resources
       free (next_path);
@@ -522,7 +531,7 @@ main (int argc, char **argv)
   ino_hash_alloc ();
 
   // perform find
-  int err = find (file, file, pattern, f, d, follow, xdev, dev, 0, AT_FDCWD);
+  int err = find (file, file, pattern, f, d, follow, xdev, dev, 0, 0, AT_FDCWD);
 
   // free resources and exit
   free (pattern);
